@@ -144,10 +144,34 @@
 12. Протестируйте созданные индексы.
     
     *Результаты тестов:*
-    [Вставьте планы выполнения для каждого случая]
+    a. "QUERY PLAN"
+        "Index Scan using a on t_books  (cost=0.42..8.21 rows=1 width=33) (actual time=9.765..9.766 rows=0 loops=1)"
+        "  Index Cond: (((title)::text = 'aaa'::text) AND ((category)::text = 'aa'::text))"
+        "Planning Time: 0.265 ms"
+        "Execution Time: 9.786 ms"
+    b. "QUERY PLAN"
+        "Index Scan using ""В"" on t_books  (cost=0.42..8.44 rows=1 width=33) (actual time=0.025..0.025 rows=0 loops=1)"
+        "  Index Cond: ((title)::text = 'aaa'::text)"
+        "Planning Time: 0.076 ms"
+        "Execution Time: 0.041 ms"
+    с."QUERY PLAN"
+        "Index Scan using c on t_books  (cost=0.29..8.23 rows=1 width=33) (actual time=0.851..0.852 rows=0 loops=1)"
+        "  Index Cond: (((category)::text = 'aa'::text) AND ((author)::text = 'aaa'::text))"
+        "Planning Time: 1.338 ms"
+        "Execution Time: 0.879 ms"
+    d."QUERY PLAN"
+        "Index Scan using t_books_id_pk on t_books  (cost=0.42..8.44 rows=1 width=33) (actual time=0.030..0.030 rows=0 loops=1)"
+        "  Index Cond: (book_id = 1)"
+        "  Filter: ((author)::text = 'aaa'::text)"
+        "  Rows Removed by Filter: 1"
+        "Planning Time: 0.119 ms"
+        "Execution Time: 0.053 ms"
     
     *Объясните результаты:*
-    [Ваше объяснение]
+    a.сканирование индекса А, условие индекса - совпадение двух строк с заданным значением, планируемое время выполнения 0,26мс
+    b.используется индекс, условие - совпаение строк, время выполнения - 0,041
+    c.используется индекс С, условие выполнения - совпадение двух строк, время выполнения - 0,87
+    d.используется два индекса - созданный нами и индекс на первичный ключ, условие - совпадение значений, время выполнения - 0,053
 
 13. Выполните регистронезависимый поиск по началу названия:
     ```sql
