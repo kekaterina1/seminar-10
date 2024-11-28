@@ -180,10 +180,14 @@
     ```
     
     *План выполнения:*
-    [Вставьте план выполнения]
+    "Seq Scan on t_books  (cost=0.00..3099.00 rows=15 width=33) (actual time=304.167..304.168 rows=0 loops=1)"
+    "  Filter: ((title)::text ~~* 'Relational%'::text)"
+    "  Rows Removed by Filter: 150000"
+    "Planning Time: 7.717 ms"
+    "Execution Time: 304.188 ms"
     
     *Объясните результат:*
-    [Ваше объяснение]
+    происходит последовательное чтение, для каждой строки происходит регистронезависимое сравнение с заданным выражением, время выполнения запроса 304мс, в результате отфильтровано 150000 строк тк книги со схожим названием нет в таблице
 
 14. Создайте функциональный индекс:
     ```sql
@@ -191,7 +195,9 @@
     ```
     
     *Результат:*
-    [Вставьте результат выполнения]
+    CREATE INDEX
+
+    Запрос завершён успешно, время выполнения: 869 msec.
 
 15. Выполните запрос из шага 13 с использованием UPPER:
     ```sql
@@ -200,10 +206,14 @@
     ```
     
     *План выполнения:*
-    [Вставьте план выполнения]
+    "Seq Scan on t_books  (cost=0.00..3474.00 rows=750 width=33) (actual time=72.332..72.333 rows=0 loops=1)"
+    "  Filter: (upper((title)::text) ~~ 'RELATIONAL%'::text)"
+    "  Rows Removed by Filter: 150000"
+    "Planning Time: 0.398 ms"
+    "Execution Time: 72.359 ms"
     
     *Объясните результат:*
-    [Ваше объяснение]
+    планировщик не использовал индекс для выполнения запроса, так как при регулярных выражениях нельзя установить точное соответсвие, то есть переход по Б-дереву не ускоряет процесс, а наоборот замедляет (не знаем, в какую сторону двигаться)
 
 16. Выполните поиск подстроки:
     ```sql
@@ -212,10 +222,14 @@
     ```
     
     *План выполнения:*
-    [Вставьте план выполнения]
+    "Seq Scan on t_books  (cost=0.00..3099.00 rows=15 width=33) (actual time=124.855..124.862 rows=1 loops=1)"
+    "  Filter: ((title)::text ~~* '%Core%'::text)"
+    "  Rows Removed by Filter: 149999"
+    "Planning Time: 0.186 ms"
+    "Execution Time: 124.885 ms"
     
     *Объясните результат:*
-    [Ваше объяснение]
+    последовательное чтение всего файла и сравнение с использованием регулярного выражения, время выполнения - 124,9 мс
 
 17. Попробуйте удалить все индексы:
     ```sql
@@ -233,10 +247,17 @@
     ```
     
     *Результат:*
-    [Вставьте результат выполнения]
+    ERROR:  cannot drop index t_books_id_pk because constraint t_books_id_pk on table t_books requires it
+    HINT:  You can drop constraint t_books_id_pk on table t_books instead.
+    CONTEXT:  SQL statement "DROP INDEX t_books_id_pk"
+    PL/pgSQL function inline_code_block line 9 at EXECUTE 
     
     *Объясните результат:*
-    [Ваше объяснение]
+    при попытке удалить индекс для первичного ключа выдаёт ошибку, тк индекс для пк необходим по умолчанию. это происходит тк в данном коде название индексп для пк указано неверно, если заменить название индекса на t_books_id_pk (индекс первичного ключа), то запрос выолняется, те удаляются все индексы кроме первичного ключа 
+    результат: 
+    DO
+
+    Запрос завершён успешно, время выполнения: 114 msec.
 
 18. Создайте индекс для оптимизации суффиксного поиска:
     ```sql
@@ -249,10 +270,26 @@
     ```
     
     *Результаты тестов:*
-    [Вставьте планы выполнения для обоих вариантов]
+    Вариант 1: 
+    "Seq Scan on t_books  (cost=0.00..3099.00 rows=15 width=33) (actual time=150.445..150.446 rows=0 loops=1)"
+    "  Filter: ((title)::text ~~* 'Relational%'::text)"
+    "  Rows Removed by Filter: 150000"
+    "Planning Time: 12.419 ms"
+    "Execution Time: 150.483 ms"
+
+
+    Вариант 2: 
+    "Bitmap Heap Scan on t_books  (cost=107.89..111.90 rows=1 width=33) (actual time=0.153..0.155 rows=0 loops=1)"
+    "  Recheck Cond: ((title)::text = 'Relational%'::text)"
+    "  Rows Removed by Index Recheck: 1"
+    "  Heap Blocks: exact=1"
+    "  ->  Bitmap Index Scan on t_books_trgm_idx  (cost=0.00..107.89 rows=1 width=0) (actual time=0.144..0.144 rows=1 loops=1)"
+    "        Index Cond: ((title)::text = 'Relational%'::text)"
+    "Planning Time: 0.760 ms"
+    "Execution Time: 0.396 ms"
     
     *Объясните результаты:*
-    [Ваше объяснение]
+    pg_trgm более эффективен при поиске по подстроке, reverse не применяется, тк при сравнении с подстрокой всё равно необходимо читать всю таблицу (невозможно однознячно сравнить с регулярным выражением). в случае триграмм строки уже отсортированы по триграммам (те частям строк), поэтому применяется битмап и поиск происходит намного быстрее
 
 19. Выполните поиск по точному совпадению:
     ```sql
@@ -261,10 +298,16 @@
     ```
     
     *План выполнения:*
-    [Вставьте план выполнения]
+    "Bitmap Heap Scan on t_books  (cost=116.57..120.58 rows=1 width=33) (actual time=0.046..0.048 rows=1 loops=1)"
+    "  Recheck Cond: ((title)::text = 'Oracle Core'::text)"
+    "  Heap Blocks: exact=1"
+    "  ->  Bitmap Index Scan on t_books_trgm_idx  (cost=0.00..116.57 rows=1 width=0) (actual time=0.036..0.036 rows=1 loops=1)"
+    "        Index Cond: ((title)::text = 'Oracle Core'::text)"
+    "Planning Time: 0.120 ms"
+    "Execution Time: 0.081 ms"
     
     *Объясните результат:*
-    [Ваше объяснение]
+    используется созданный ранее битмап индекс с триграммами, время выполнения очень маленькое - 0,081, тк индексный поиск эффективен при поиске точного совпадения
 
 20. Выполните поиск по началу названия:
     ```sql
@@ -273,10 +316,17 @@
     ```
     
     *План выполнения:*
-    [Вставьте план выполнения]
+    "Bitmap Heap Scan on t_books  (cost=95.15..150.36 rows=15 width=33) (actual time=0.040..0.041 rows=0 loops=1)"
+    "  Recheck Cond: ((title)::text ~~* 'Relational%'::text)"
+    "  Rows Removed by Index Recheck: 1"
+    "  Heap Blocks: exact=1"
+    "  ->  Bitmap Index Scan on t_books_trgm_idx  (cost=0.00..95.15 rows=15 width=0) (actual time=0.030..0.030 rows=1 loops=1)"
+    "        Index Cond: ((title)::text ~~* 'Relational%'::text)"
+    "Planning Time: 0.232 ms"
+    "Execution Time: 0.067 ms"
     
     *Объясните результат:*
-    [Ваше объяснение]
+    триграммный индекс эффективен при поиске по подстроке
 
 21. Создайте свой пример индекса с обратной сортировкой:
     ```sql
@@ -284,10 +334,14 @@
     ```
     
     *Тестовый запрос:*
-    [Вставьте ваш запрос]
+ explain analyze
+	 select * from t_books order by title desc limit 10 
     
     *План выполнения:*
-    [Вставьте план выполнения]
+    "Limit  (cost=0.42..1.03 rows=10 width=33) (actual time=1.598..1.606 rows=10 loops=1)"
+    "  ->  Index Scan using t_books_desc_idx on t_books  (cost=0.42..9084.34 rows=150000 width=33) (actual time=1.597..1.602 rows=10 loops=1)"
+    "Planning Time: 0.420 ms"
+    "Execution Time: 1.629 ms"
     
     *Объясните результат:*
-    [Ваше объяснение]
+    так как в индексе записи отсортированы так же как в запросе, отдельная сортировка не происходит, выводятся первые 10 строк и они уже отсортированны по названию
